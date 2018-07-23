@@ -1,22 +1,21 @@
-import bs4, requests
+import bs4, requests, random
 class arrestorg():
     def __init__(self):
-        #to keep a persistent session. if to many are made the server wont return data to the client for 24hours
-        self.arrestssession = requests.session() 
         self.state = ""
-        headers ={
-        'User-Agent': 'h'
-        }
-        self.arrestssession.headers.clear()
-        self.page = self.arrestssession.get("https://arrests.org/", headers = headers)
-        cookies = [] 
-        for key, value in self.arrestssession.cookies.iteritems():
-          d = {}
-          d[key] = value
-          cookies.append(d)
+        self.arrestsession = requests.session()
+        self.page = self.arrestsession.get("https://arrests.org/", headers = {'User-Agent': self.RandomAgent()})
+
+    def RandomAgent(self):
+        agents_list = []
+        with open("useragents.txt", "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    agents_list.append(line)
+        return agents_list[random.randint(0, len(agents_list))]
 
     def GetArrest(self, profilelink):
-        arrestpage = self.arrestssession.get(profilelink)
+        arrestpage = self.arrestsession.get(profilelink, headers = {'User-Agent': self.RandomAgent()})
         #get the page in sessions
         arrestsoup = bs4.BeautifulSoup(arrestpage.content, "lxml")
         info = arrestsoup.find("div", { "class" : "info" })
@@ -76,38 +75,40 @@ class arrestorg():
             arrests.append(self.GetArrest(profilelink))
         return arrests
     def SearchState(self, fname=None, lname=None, page=None, resultsperpage=None, partialmatch=True):
-        headers = {'User-Agent': 'h'}
+        ua = {'User-Agent': self.RandomAgent()}
+        params = {}
         if(fname is None):
             pass
         elif(not(isinstance(fname, str))):
             raise TypeError("first name must be str")
         else:
-            headers["fname"] = fname
+            params["fname"] = fname
         if(lname is None):
             pass
         elif(not(isinstance(lname, str))):
             raise TypeError("last name must be str")
         else:
-            headers["lname"] = lname
+            params["lname"] = lname
         if(page is None):
-            headers["page"] = "1"
+            params["page"] = "1"
         elif(not(isinstance(page, int))):
             raise TypeError("page must be int")
         else:
-            headers["page"] = page
+            params["page"] = str(page)
         if(resultsperpage is None):
-            headers["results"] = "56"
+            params["results"] = "56"
         elif(not(isinstance(resultsperpage, int))):
             raise TypeError("resultsperpage must be int")
+        else:
+            params["results"] = str(resultsperpage)
         if(not(isinstance(partialmatch, bool))):
             raise TypeError("partial match must be bool")
         else:
-            headers["partialmatch"] = partialmatch
-        headerstring = "?"
-        for key, value in headers.items():
-            headerstring += str(key)+"="+str(value)+"&"
-        self.arrestssession.headers.clear()
-        self.page = self.arrestssession.get(self.state+"search.php/"+headerstring[:-1])
+            params["partialmatch"] = str(partialmatch)
+
+        #print(self.state+"search.php/"+headerstring[:-1])
+        #self.page = self.arrestsession.get(self.state+"search.php/"+headerstring[:-1])
+        self.page = self.arrestsession.get(self.state, headers = ua, params = params)
     def statesf(self):
         return ['alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut', 'delaware', 'district of columbia', 'florida', 'georgia', 'hawaii', 'idaho', 'illinois', 'indiana', 'iowa', 'kansas', 'kentucky', 'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan', 'minnesota', 'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire', 'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota', 'ohio', 'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota', 'tennessee', 'texas', 'utah', 'vermont', 'virginia', 'washington', 'west virginia', 'wisconsin', 'wyoming']
     def statess(self):
@@ -117,7 +118,8 @@ class arrestorg():
         if(state.lower() in self.statesf() or state.lower() in self.statess()):
             try:
                 link = 'https://'+ state +'.arrests.org/'
-                self.page = self.arrestssession.get(link)
+                headers = {'User-Agent': self.RandomAgent()}
+                self.page = self.arrestsession.get(link, headers=headers)
                 self.state = link
             except:
                 raise ConnectionError(state + ' isnt compatible, check https://arrests.org for compatible states')
